@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oussama /z — مساعدك الذكي</title>
+<meta name="description" content="Oussama /z: مساعد ذكاء اصطناعي بالعربية للكتابة والتلخيص والشرح وتوليد الصور.">
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F7F8F5;--ink:#14213D;--mut:#6A7385;--acc:#2B59FF;--hot:#FF5A36;--card:#fff;--line:#DCE0D6;--bot:#EEF1EA}
+@media (prefers-color-scheme:dark){:root{--bg:#0F1626;--ink:#EAF0F7;--mut:#9AA6BA;--acc:#7C9BFF;--hot:#FF7A5C;--card:#182238;--line:#2A3650;--bot:#1A2540}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:'Readex Pro',system-ui,sans-serif;line-height:1.7;display:flex;flex-direction:column}
+header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+.logo{font-weight:700;direction:ltr}.logo b{color:var(--hot)}
+.new{font:inherit;font-size:.9rem;background:none;color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:4px 14px;cursor:pointer}
+main{flex:1;overflow-y:auto;padding:16px}
+.col{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.hello{text-align:center;margin-top:8vh}
+.hello h1{font-size:clamp(2.2rem,9vw,3.6rem);margin:0;direction:ltr;letter-spacing:-.03em}
+.hello h1 span{color:var(--hot);font-weight:300}.hello p{color:var(--mut)}
+.m{white-space:pre-wrap;word-wrap:break-word;padding:10px 14px;border-radius:16px;max-width:88%}
+.u{background:var(--acc);color:#fff;align-self:flex-start}.a{background:var(--bot);align-self:flex-end}
+.err{color:var(--hot)}.pic{display:block;width:100%;max-width:420px;border-radius:12px}
+footer{padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+.box{max-width:760px;margin:0 auto;display:flex;gap:8px;align-items:flex-end;background:var(--card);border:1.5px solid var(--ink);border-radius:18px;padding:6px 6px 6px 12px}
+textarea{flex:1;font:inherit;border:0;background:none;color:var(--ink);resize:none;max-height:140px;padding:8px 6px;outline:none}
+.mode{font:inherit;font-size:.85rem;background:none;color:var(--mut);border:1px solid var(--line);border-radius:12px;padding:8px 10px;cursor:pointer;white-space:nowrap}
+.mode[aria-pressed="true"]{background:var(--hot);border-color:var(--hot);color:#fff}
+.send{font:inherit;font-weight:600;background:var(--acc);color:#fff;border:0;border-radius:12px;padding:8px 16px;cursor:pointer}
+.send:disabled{opacity:.45}
+button:focus-visible,textarea:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+</style>
+</head>
+<body>
+<header><div class="logo">Oussama<b> /z</b></div><button class="new" id="new">محادثة جديدة</button></header>
+<main id="main"><div class="col" id="col"></div></main>
+<footer><div class="box"><textarea id="in" rows="1" placeholder="اكتب رسالتك هنا..." aria-label="رسالتك"></textarea><button class="mode" id="mode" aria-pressed="false">🎨 صورة</button><button class="send" id="send">إرسال</button></div></footer>
+<script>
+const OPENAI_API_KEY = "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";
+
+const col=document.getElementById('col'),main=document.getElementById('main'),inp=document.getElementById('in'),btn=document.getElementById('send'),modeBtn=document.getElementById('mode');
+let hist=[],busy=false,imgMode=false;
+
+function welcome(){col.innerHTML='<div class="hello"><h1>Oussama<span> /z</span></h1><p>كيف أقدر أساعدك اليوم؟</p></div>'}
+function bubble(t,k){const d=document.createElement('div');d.className='m '+k;d.textContent=t;col.appendChild(d);main.scrollTop=main.scrollHeight;return d}
+
+async function fetchOpenAI(endpoint, body){
+  const r = await fetch(`https://api.openai.com/v1/${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`
+    },
+    body: JSON.stringify(body)
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error?.message || (r.status===429?'طلبات كثيرة، انتظر قليلاً ثم حاول.':'حدث خطأ، حاول مرة أخرى.'));
+  return d;
+}
+
+async function send(){
+  const text=inp.value.trim();if(!text||busy)return;
+  if(!hist.length)col.innerHTML='';
+  inp.value='';inp.style.height='auto';bubble(text,'u');
+  const out=bubble('...','a');busy=true;btn.disabled=true;
+  try{
+    if(imgMode){
+      const d = await fetchOpenAI('images/generations', {
+        prompt: text,
+        n: 1,
+        size: "1024x1024"
+      });
+      const im=document.createElement('img');im.className='pic';im.alt=text;im.src=d.data[0].url;
+      out.textContent='';out.appendChild(im);
+      hist.push({role:'user',content:text},{role:'assistant',content:'[أنشأت صورة: '+text+']'});
+    }else{
+      hist.push({role:'user',content:text});
+      const d = await fetchOpenAI('chat/completions', {
+        model: "gpt-4o-mini",
+        messages: hist
+      });
+      const reply = d.choices[0].message.content;
+      out.textContent=reply;
+      hist.push({role:'assistant',content:reply});
+    }
+  }catch(e){
+    if(!imgMode&&hist.length&&hist[hist.length-1].role==='user')hist.pop();
+    out.classList.add('err');
+    out.textContent=e.message;
+  }
+  busy=false;btn.disabled=false;inp.focus();main.scrollTop=main.scrollHeight;
+}
+
+btn.onclick=send;
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+inp.addEventListener('input',()=>{inp.style.height='auto';inp.style.height=inp.scrollHeight+'px'});
+modeBtn.onclick=()=>{imgMode=!imgMode;modeBtn.setAttribute('aria-pressed',imgMode);inp.placeholder=imgMode?'صف الصورة التي تريدها...':'اكتب رسالتك هنا...'};
+document.getElementById('new').onclick=()=>{if(!busy){hist=[];welcome()}};
+welcome();
+</script>
+</body>
+</html>
